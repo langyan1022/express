@@ -10,6 +10,7 @@ describe('app', function(){
     it('should support absolute paths', function(done){
       var app = createApp();
 
+      app.set('views', path.join(__dirname, 'fixtures'))
       app.locals.user = { name: 'tobi' };
 
       app.render(path.join(__dirname, 'fixtures', 'user.tmpl'), function (err, str) {
@@ -23,11 +24,26 @@ describe('app', function(){
       var app = createApp();
 
       app.set('view engine', 'tmpl');
+      app.set('views', path.join(__dirname, 'fixtures'))
       app.locals.user = { name: 'tobi' };
 
       app.render(path.join(__dirname, 'fixtures', 'user'), function (err, str) {
         if (err) return done(err);
         assert.strictEqual(str, '<p>tobi</p>')
+        done();
+      })
+    })
+
+    it('should not support absolute paths outside the "views" root', function(done){
+      var app = createApp();
+
+      app.set('views', path.join(__dirname, 'fixtures', 'default_layout'))
+      app.locals.user = { name: 'tobi' };
+
+      app.render(path.join(__dirname, 'fixtures', 'user.tmpl'), function (err, str) {
+        assert.ok(err)
+        assert.strictEqual(err.message, 'Failed to lookup view "' + path.join(__dirname, 'fixtures', 'user.tmpl') + '" in views directories')
+        assert.strictEqual(str, undefined)
         done();
       })
     })
@@ -86,7 +102,7 @@ describe('app', function(){
         app.set('views', path.join(__dirname, 'fixtures'))
         app.render('rawr.tmpl', function (err) {
           assert.ok(err)
-          assert.equal(err.message, 'Failed to lookup view "rawr.tmpl" in views directory "' + path.join(__dirname, 'fixtures') + '"')
+          assert.equal(err.message, 'Failed to lookup view "rawr.tmpl" in views directories')
           done();
         });
       })
@@ -196,7 +212,7 @@ describe('app', function(){
 
           app.render('pet.tmpl', function (err, str) {
             assert.ok(err)
-            assert.equal(err.message, 'Failed to lookup view "pet.tmpl" in views directories "' + views[0] + '" or "' + views[1] + '"')
+            assert.equal(err.message, 'Failed to lookup view "pet.tmpl" in views directories')
             done();
           })
         })
