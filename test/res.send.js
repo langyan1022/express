@@ -246,6 +246,160 @@ describe('res', function(){
     })
   })
 
+  describe('.send(ArrayBuffer)', function(){
+    it('should send as octet-stream with exact bytes', function(done){
+      var app = express();
+      var bytes = [0x00, 0xff, 0x80, 0xc3, 0xa9, 0x61, 0x7a]
+
+      app.use(function(req, res){
+        res.send(new Uint8Array(bytes).buffer)
+      });
+
+      request(app)
+        .get('/')
+        .expect('Content-Type', 'application/octet-stream')
+        .expect('Content-Length', String(bytes.length))
+        .expect(utils.shouldHaveBody(Buffer.from(bytes)))
+        .expect(200, done)
+    })
+
+    it('should send zero-length ArrayBuffer with Content-Length 0', function(done){
+      var app = express();
+
+      app.use(function(req, res){
+        res.send(new ArrayBuffer(0))
+      });
+
+      request(app)
+        .get('/')
+        .expect('Content-Type', 'application/octet-stream')
+        .expect('Content-Length', '0')
+        .expect(200, '', done)
+    })
+
+    it('should set ETag based on the byte content', function (done) {
+      var app = express();
+
+      app.use(function (req, res) {
+        res.send(new Uint8Array(Buffer.alloc(999, '-')).buffer)
+      });
+
+      request(app)
+      .get('/')
+      .expect('ETag', 'W/"3e7-qPnkJ3CVdVhFJQvUBfF10TmVA7g"')
+      .expect(200, done);
+    })
+
+    it('should not override Content-Type', function(done){
+      var app = express();
+
+      app.use(function(req, res){
+        res.set('Content-Type', 'text/plain').send(new TextEncoder().encode('hey').buffer)
+      });
+
+      request(app)
+      .get('/')
+      .expect('Content-Type', 'text/plain; charset=utf-8')
+      .expect(200, 'hey', done);
+    })
+
+    it('should not mutate the ArrayBuffer passed by the caller', function(done){
+      var app = express();
+      var bytes = [0xde, 0xad, 0xbe, 0xef]
+      var arrayBuffer = new Uint8Array(bytes).buffer
+
+      app.use(function(req, res){
+        res.send(arrayBuffer)
+      });
+
+      request(app)
+        .get('/')
+        .expect(200)
+        .expect(function () {
+          assert.deepStrictEqual(Array.from(new Uint8Array(arrayBuffer)), bytes)
+        })
+        .end(done)
+    })
+
+    it('should support chaining with status', function(done){
+      var app = express();
+      var bytes = [0x01, 0x02, 0x03]
+
+      app.use(function(req, res){
+        res.status(201).send(new Uint8Array(bytes).buffer)
+      });
+
+      request(app)
+        .get('/')
+        .expect('Content-Length', '3')
+        .expect(utils.shouldHaveBody(Buffer.from(bytes)))
+        .expect(201, done)
+    })
+
+    it('should send headers but no body for HEAD', function(done){
+      var app = express();
+      var bytes = [0x10, 0x20, 0x30, 0x40]
+
+      app.use(function(req, res){
+        res.send(new Uint8Array(bytes).buffer)
+      });
+
+      request(app)
+        .head('/')
+        .expect('Content-Type', 'application/octet-stream')
+        .expect('Content-Length', String(bytes.length))
+        .expect(utils.shouldNotHaveBody())
+        .expect(200, done)
+    })
+
+    it('should strip entity headers and body for 204', function(done){
+      var app = express();
+
+      app.use(function(req, res){
+        res.status(204).send(new Uint8Array([0x01, 0x02]).buffer)
+      });
+
+      request(app)
+        .get('/')
+        .expect(utils.shouldNotHaveHeader('Content-Type'))
+        .expect(utils.shouldNotHaveHeader('Content-Length'))
+        .expect(utils.shouldNotHaveHeader('Transfer-Encoding'))
+        .expect(utils.shouldNotHaveBody())
+        .expect(204, done)
+    })
+
+    it('should strip entity headers and body for 304', function(done){
+      var app = express();
+
+      app.use(function(req, res){
+        res.status(304).send(new Uint8Array([0x01, 0x02]).buffer)
+      });
+
+      request(app)
+        .get('/')
+        .expect(utils.shouldNotHaveHeader('Content-Type'))
+        .expect(utils.shouldNotHaveHeader('Content-Length'))
+        .expect(utils.shouldNotHaveHeader('Transfer-Encoding'))
+        .expect(utils.shouldNotHaveBody())
+        .expect(304, done)
+    })
+
+    it('should respond 304 to fresh requests with matching ETag', function(done){
+      var app = express();
+
+      app.use(function(req, res){
+        res.send(new Uint8Array(Buffer.alloc(999, '-')).buffer)
+      });
+
+      request(app)
+        .get('/')
+        .set('If-None-Match', 'W/"3e7-qPnkJ3CVdVhFJQvUBfF10TmVA7g"')
+        .expect(utils.shouldNotHaveHeader('Content-Length'))
+        .expect(utils.shouldNotHaveBody())
+        .expect(304, done)
+    })
+  })
+
   describe('when the request method is HEAD', function(){
     it('should ignore the body', function(done){
       var app = express();
