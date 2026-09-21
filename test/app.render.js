@@ -10,6 +10,7 @@ describe('app', function(){
     it('should support absolute paths', function(done){
       var app = createApp();
 
+      app.set('views', path.join(__dirname, 'fixtures'))
       app.locals.user = { name: 'tobi' };
 
       app.render(path.join(__dirname, 'fixtures', 'user.tmpl'), function (err, str) {
@@ -23,6 +24,7 @@ describe('app', function(){
       var app = createApp();
 
       app.set('view engine', 'tmpl');
+      app.set('views', path.join(__dirname, 'fixtures'))
       app.locals.user = { name: 'tobi' };
 
       app.render(path.join(__dirname, 'fixtures', 'user'), function (err, str) {
