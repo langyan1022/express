@@ -78,6 +78,40 @@ for more information.
   * Content negotiation
   * Executable for generating applications quickly
 
+### Automatic 405 responses
+
+By default, when a request path matches a route but the HTTP method is not
+registered for it, the request falls through the router and eventually
+results in a `404 Not Found`. Applications and routers can opt in to
+answering such requests with `405 Method Not Allowed` and an accurate
+`Allow` header instead:
+
+```js
+// enable for the whole application, including routers created with
+// express.Router() that are mounted on it
+app.enable('auto 405')
+
+// or enable per router, making the router respond on its own
+var router = express.Router({ auto405: true })
+```
+
+The behavior is opt-in and only applies when a request would otherwise
+leave the enabled application or router unhandled:
+
+  * A `405` is only generated when at least one route path matched the
+    request and none of the matching routes handle the request method.
+    Requests without any path match still result in a `404`.
+  * The `Allow` header only lists methods that are actually reachable for
+    the matched path, including the automatic `HEAD` support of `GET`
+    routes. Routes using `.all()` handle every method and never produce
+    a `405`.
+  * `HEAD` requests are still served by `GET` routes, and `OPTIONS`
+    requests keep their automatic `Allow` response.
+  * All middleware, error handlers, and routes are evaluated first, so
+    user-defined `404`/`405` handlers and any middleware registered after
+    the routes keep working and take precedence over the automatic
+    response. `next('route')` semantics are unchanged.
+
 ## Docs & Community
 
   * [Website and Documentation](https://expressjs.com/) - [[website repo](https://github.com/expressjs/expressjs.com)]
